@@ -1,0 +1,55 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: alomrane_postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: amulvaro
+      POSTGRES_PASSWORD: amulvaro123
+      POSTGRES_DB: alomrane_source
+
+    ports:
+      - "5440:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../sql:/sql
+
+    mem_limit: 768m
+    cpus: 1.0
+
+    networks:
+      - alomrane_net
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: alomrane_pgadmin
+    restart: unless-stopped
+
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@alomrane.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+
+    ports:
+      - "5080:80"
+
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+    mem_limit: 512m
+    cpus: 0.5
+
+    depends_on:
+      - postgres
+
+    networks:
+      - alomrane_net
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+
+networks:
+  alomrane_net:
+    driver: bridge

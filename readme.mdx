@@ -1,0 +1,430 @@
+# AL OMRANE BI Project
+
+Projet Business Intelligence pour la société immobilière AL OMRANE.
+
+L'objectif actuel est de préparer l'environnement technique, créer une base transactionnelle PostgreSQL, générer un dataset avec Python/Faker, puis l'utiliser avec Apache Hop pour construire un Data Warehouse.
+
+---
+
+# Stack Technique
+
+- Linux
+- Docker
+- PostgreSQL 16
+- pgAdmin
+- Python
+- Faker
+- Pandas
+- Apache Hop
+- VS Code
+
+---
+
+# Structure du Projet
+
+```text
+alomrane-bi/
+│
+├── docker/
+│   ├── docker-compose.yml
+│   └── sql/
+│       ├── 001_source_schema.sql
+│       └── 002_dw_schema.sql
+│
+├── scripts/
+│   └── generate.py
+│
+├── data/
+│   ├── clients.csv
+│   ├── agents_immobilier.csv
+│   ├── projets.csv
+│   ├── biens_immobilier.csv
+│   └── transactions.csv
+│
+├── hop/
+│   ├── pipelines/
+│   ├── workflows/
+│   └── metadata/
+│
+├── .gitignore
+│
+└── readme.mdx
+```
+
+---
+
+# Lancer Docker
+
+Depuis le dossier docker :
+
+```bash
+docker compose up -d
+```
+
+Vérifier :
+
+```bash
+docker ps
+```
+
+PostgreSQL :
+
+```
+localhost:5440
+```
+
+pgAdmin :
+
+```
+http://localhost:5051
+```
+
+---
+
+# Connexion PostgreSQL
+
+Entrer dans PostgreSQL :
+
+```bash
+docker exec -it alomrane_postgres psql -U amulvaro -d alomrane_source
+```
+
+Lister les bases :
+
+```sql
+\l
+```
+
+Lister les tables :
+
+```sql
+\dt
+```
+
+Quitter :
+
+```sql
+\q
+```
+
+---
+
+# Création de la base Data Warehouse
+
+```sql
+CREATE DATABASE alomrane_dw;
+```
+
+Vérification :
+
+```sql
+\l
+```
+
+---
+
+# Génération des données
+
+Créer l'environnement Python :
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+Installer les dépendances :
+
+```bash
+pip install faker pandas
+```
+
+Générer les CSV :
+
+```bash
+python scripts/generate.py
+```
+
+Fichiers générés :
+
+```text
+data/clients.csv
+data/agents_immobilier.csv
+data/projets.csv
+data/biens_immobilier.csv
+data/transactions.csv
+```
+
+---
+
+# Création des tables source
+
+Exécuter le script SQL :
+
+Depuis le dossier docker :
+
+```bash
+docker exec -i alomrane_postgres psql -U amulvaro -d alomrane_source < ../docker/sql/001_source_schema.sql
+# Pour la base Data Warehouse :
+docker exec -i alomrane_postgres psql -U amulvaro -d alomrane_dw < ../docker/sql/002_dw_schema.sql
+```
+
+---
+
+# Copier les CSV dans PostgreSQL
+
+
+Depuis docker :
+
+```bash
+docker cp ../data/. alomrane_postgres:/data
+```
+
+Vérification :
+
+```bash
+docker exec -it alomrane_postgres ls /data
+```
+
+---
+
+# Import des données
+
+Connexion PostgreSQL :
+
+```bash
+docker exec -it alomrane_postgres psql -U amulvaro -d alomrane_source
+```
+
+Importer dans cet ordre :
+
+```sql
+COPY clients FROM '/data/clients.csv' DELIMITER ',' CSV HEADER;
+
+COPY agents_immobilier FROM '/data/agents_immobilier.csv' DELIMITER ',' CSV HEADER;
+
+COPY projets FROM '/data/projets.csv' DELIMITER ',' CSV HEADER;
+
+COPY biens_immobilier FROM '/data/biens_immobilier.csv' DELIMITER ',' CSV HEADER;
+
+COPY transactions FROM '/data/transactions.csv' DELIMITER ',' CSV HEADER;
+```
+
+---
+
+# Vérification
+
+```sql
+SELECT COUNT(*) FROM clients;
+
+SELECT COUNT(*) FROM agents_immobilier;
+
+SELECT COUNT(*) FROM projets;
+
+SELECT COUNT(*) FROM biens_immobilier;
+
+SELECT COUNT(*) FROM transactions;
+```
+
+Résultat attendu :
+
+```text
+clients              100
+agents_immobilier    20
+projets              15
+biens_immobilier     200
+transactions         1000
+```
+
+---
+
+---
+
+# Installation Apache Hop
+
+Apache Hop remplace Pentaho Data Integration (PDI) comme orchestrateur ETL du projet.
+
+## Pourquoi Apache Hop ?
+
+Hop est le successeur open-source de Pentaho. Il offre :
+- Même paradigme ETL (pipelines, workflows)
+- Interface graphique Hop GUI (ex-Spoon)
+- Meilleure gestion des métadonnées
+- Actif et maintenu
+
+Les pipelines et workflows Hop sont versionnés directement dans le dépôt (dossier `hop/`).
+
+---
+
+## Prérequis
+
+Installer Java 17 :
+
+```bash
+sudo apt update
+sudo apt install openjdk-17-jdk unzip
+```
+
+Vérification :
+
+```bash
+java --version
+```
+
+---
+
+## Installation
+
+Télécharger Apache Hop depuis :
+
+```text
+https://hop.apache.org/download/
+```
+
+Extraire l'archive :
+
+```bash
+mkdir -p ~/tools
+cd ~/tools
+unzip apache-hop-*.zip
+```
+
+La structure obtenue :
+
+```text
+~/tools/
+└── apache-hop/
+    ├── hop-gui.sh
+    ├── hop-conf.sh
+    ├── lib/
+    └── ...
+```
+
+---
+
+## Lancement de Hop GUI
+
+```bash
+cd ~/tools/apache-hop
+chmod +x hop-gui.sh
+./hop-gui.sh
+```
+
+---
+
+## Driver PostgreSQL
+
+Télécharger le driver JDBC PostgreSQL :
+
+```text
+postgresql-42.x.x.jar
+```
+
+Copie du driver :
+
+```bash
+cp ~/Downloads/postgresql-42*.jar \
+~/tools/apache-hop/lib/
+```
+
+Relancer ensuite Hop GUI.
+
+---
+
+## Connexions PostgreSQL
+
+### Source Database
+
+```text
+Name: alomrane_source
+Type: PostgreSQL
+Host: localhost
+Port: 5440
+Database: alomrane_source
+User: amulvaro
+Password: ********
+```
+
+### Data Warehouse
+
+```text
+Name: alomrane_dw
+Type: PostgreSQL
+Host: localhost
+Port: 5440
+Database: alomrane_dw
+User: amulvaro
+Password: ********
+```
+
+---
+
+## Organisation du projet
+
+L'application Hop n'est pas stockée dans le dépôt Git.
+
+Seuls les pipelines, workflows et métadonnées sont versionnés :
+
+```text
+alomrane-bi/
+│
+├── hop/
+│   ├── pipelines/
+│   ├── workflows/
+│   └── metadata/
+│
+└── ...
+```
+
+---
+
+## Premier pipeline ETL
+
+Objectif :
+
+```text
+clients
+↓
+dim_client
+```
+
+Flux Hop (Pipeline) :
+
+```text
+Table Input
+↓
+Select Values
+↓
+Table Output
+```
+
+Ce pipeline constitue la première étape de chargement du Data Warehouse.
+
+# État du Projet
+
+## Terminé
+
+- Docker configuré
+- PostgreSQL opérationnel
+- pgAdmin opérationnel
+- Base source créée
+- Base DW créée
+- Dataset Faker généré
+- Tables source créées
+- Données importées
+
+## Prochaine étape
+
+- Concevoir le Data Warehouse
+- Créer les dimensions
+- Créer la table de faits
+- Installer Apache Hop
+- Construire les pipelines ETL
+- Créer les dashboards Power BI
+
+---
+
+# Auteur
+
+Amulvaro
+
+Projet Business Intelligence - AL OMRANE
