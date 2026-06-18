@@ -45,7 +45,25 @@ services:
 
     networks:
       - alomrane_net
+  metabase:
+    image: metabase/metabase:latest
+    container_name: alomrane_metabase
+    restart: unless-stopped
 
+    ports:
+      - "3000:3000"
+
+    environment:
+      JAVA_OPTS: "-Xmx1g -Xms512m"
+
+    depends_on:
+      - postgres
+
+    mem_limit: 1536m
+    cpus: 1.0
+
+    networks:
+      - alomrane_net
 volumes:
   postgres_data:
   pgadmin_data:
