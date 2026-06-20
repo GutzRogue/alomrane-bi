@@ -465,16 +465,16 @@ dim_temps
 
 Schéma logique :
 
-dim_temps  
-|  
-|  
+                dim_temps  
+                   |  
+                   |  
 dim_client --- fact_ventes --- dim_agent  
-|  
-|  
-dim_bien  
-|  
-|  
-dim_projet
+                   |  
+                   |  
+                dim_bien  
+                   |  
+                   |  
+                dim_projet
 
 Les dimensions donnent le contexte de chaque vente.
 
